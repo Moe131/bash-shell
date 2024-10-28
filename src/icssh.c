@@ -5,6 +5,7 @@ int main(int argc, char* argv[]) {
     int max_bgprocs = -1;
 	int exec_result;
 	int exit_status;
+    int last_child_status = 0;
 	pid_t pid;
 	pid_t wait_result;
 	char* line;
@@ -90,6 +91,16 @@ int main(int argc, char* argv[]) {
 			continue;
 		}
 
+
+        //  built-in: estatus 
+		if (strcmp(job->procs->cmd, "estatus") == 0) {
+			// prints the exit status of the most recent reaped program (aka child process)
+            printf("%d\n",last_child_status);
+			free(line);
+			free_job(job);
+			continue;
+		}
+
 		// example of good error handling!
         // create the child proccess
 		if ((pid = fork()) < 0) {
@@ -118,6 +129,8 @@ int main(int argc, char* argv[]) {
 				printf(WAIT_ERR);
 				exit(EXIT_FAILURE);
 			}
+            // Update last_child_status based on child's exit status
+            last_child_status = WEXITSTATUS(exit_status);
 		}
 
 		free_job(job);  // if a foreground job, we no longer need the data
