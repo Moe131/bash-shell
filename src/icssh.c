@@ -1,17 +1,68 @@
 #include "icssh.h"
 #include <readline/readline.h>
 
+int last_child_status = 0;
+int child_terminated = 0;
+
+int compare_bgentry(const void* a, const void* b) {
+    const bgentry_t* bg1 = (const bgentry_t*)a;
+    const bgentry_t* bg2 = (const bgentry_t*)b;
+    return (bg2->seconds - bg1->seconds);  // Most recent first
+}
+
+void handle_bg_completion(list_t* bg_job_list, pid_t pid) {
+    node_t* current = bg_job_list->head;
+    int index = 0;
+    while (current != NULL) {
+        bgentry_t* entry = (bgentry_t*)current->data;
+        if (entry->pid == pid) {
+            RemoveByIndex(bg_job_list, index);
+            printf(BG_TERM, pid, entry->job->line);
+            free(entry->job->line);
+            free(entry->job);
+            free(entry);
+            break;
+        }
+        current = current->next;
+        index++;
+    }
+}
+
+void sigchld_handler(int sig) {
+    // Signal handler for SIGCHLD, sets the flag to indicate a child has terminated
+    child_terminated = 1;
+}
+
+void reap_terminated_children(list_t* bg_job_list) {
+    int status;
+    pid_t pid;
+    // Reap each terminated child one at a time
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        handle_bg_completion(bg_job_list, pid);
+        if (WIFEXITED(status)) 
+            last_child_status = WEXITSTATUS(status);  // Update status if exited normally
+        
+    }
+    // Reset the flag after all terminated children have been reaped
+    child_terminated = 0;
+}
+
+
+
 int main(int argc, char* argv[]) {
     int max_bgprocs = -1;
 	int exec_result;
 	int exit_status;
-    int last_child_status = 0;
+    list_t* bg_job_list = NULL;
 	pid_t pid;
 	pid_t wait_result;
 	char* line;
 #ifdef GS
     rl_outstream = fopen("/dev/null", "w");
 #endif
+
+    bg_job_list = CreateList(compare_bgentry, NULL, free);
+
 
     // check command line arg
     if(argc > 1) {
@@ -30,8 +81,18 @@ int main(int argc, char* argv[]) {
 		exit(EXIT_FAILURE);
 	}
 
+    // Setup the SIGCHLD handler
+    if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) {
+        perror("Failed to set SIGCHLD handler");
+        exit(EXIT_FAILURE);
+    }
+
     	// print the prompt & wait for the user to enter commands string
 	while ((line = readline(SHELL_PROMPT)) != NULL) {
+            // Check flag to reap all the terminated bg processes 
+            if (child_terminated)
+                reap_terminated_children(bg_job_list);
+        
         	// MAGIC HAPPENS! Command string is parsed into a job struct
         	// Will print out error message if command string is invalid
 		    job_info* job = validate_input(line);
@@ -101,6 +162,14 @@ int main(int argc, char* argv[]) {
 			continue;
 		}
 
+        // Background process but maximum is reached
+        if (job->bg && bg_job_list->length >= max_bgprocs) {
+            fprintf(stderr, BG_ERR);
+            free(line);
+            free_job(job);
+            continue;
+        } 
+        
 		// example of good error handling!
         // create the child proccess
 		if ((pid = fork()) < 0) {
@@ -124,13 +193,30 @@ int main(int argc, char* argv[]) {
 			}
 		} else {
         	// As the parent, wait for the foreground job to finish
-			wait_result = waitpid(pid, &exit_status, 0);
-			if (wait_result < 0) {
-				printf(WAIT_ERR);
-				exit(EXIT_FAILURE);
-			}
-            // Update last_child_status based on child's exit status
-            last_child_status = WEXITSTATUS(exit_status);
+
+            // background process
+            if (job->bg) {
+                // Create a new bgentry_t for the job
+                bgentry_t* new_bg = malloc(sizeof(bgentry_t));
+                new_bg->job = job;
+                new_bg->pid = pid;
+                new_bg->seconds = time(NULL);
+
+                // Insert into the background job list
+                InsertInOrder(bg_job_list, new_bg);
+                printf("Started background job with PID: %d\n", pid);
+                continue;
+            }
+            // foreground process
+            else {
+    			wait_result = waitpid(pid, &exit_status, 0);
+    			if (wait_result < 0) {
+    				printf(WAIT_ERR);
+    				exit(EXIT_FAILURE);
+    			}
+                // Update last_child_status based on child's exit status
+                last_child_status = WEXITSTATUS(exit_status);
+            } 
 		}
 
 		free_job(job);  // if a foreground job, we no longer need the data
@@ -139,6 +225,8 @@ int main(int argc, char* argv[]) {
 
     	// calling validate_input with NULL will free the memory it has allocated
     	validate_input(NULL);
+        DeleteList(bg_job_list);
+
 
 #ifndef GS
 	fclose(rl_outstream);

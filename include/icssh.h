@@ -10,6 +10,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "linkedlist.h"
+
+
 #define RD_ERR "REDIRECTION ERROR: Invalid operators or file combination.\n"
 #define BG_TERM "Background process %d: %s, has terminated.\n"
 #define DIR_ERR "DIRECTORY ERROR: Directory does not exist.\n"
@@ -79,4 +82,13 @@ void print_bgentry(bgentry_t *p);
  */
 void sigsegv_handler();
 
+void sigchld_handler(int sig);
+
+void reap_terminated_children(list_t* bg_job_list);
+
+void handle_bg_completion(list_t* bg_job_list, pid_t pid) ;
+
+
+int compare_bgentry(const void* a, const void* b) ;
+void handle_bg_completion(list_t* bg_job_list, pid_t pid);
 #endif
