@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     rl_outstream = fopen("/dev/null", "w");
 #endif
 
-    bg_job_list = CreateList(compare_bgentry, NULL, free);
+    bg_job_list = CreateList(compare_bgentry, print_bgentry, free);
 
 
     // check command line arg
@@ -161,6 +161,15 @@ int main(int argc, char* argv[]) {
 			free_job(job);
 			continue;
 		}
+
+        //  built-in: bglist 
+		if (strcmp(job->procs->cmd, "bglist") == 0) {
+            PrintLinkedList(bg_job_list, stderr);
+            free(line);
+			free_job(job);
+			continue;
+		}
+
 
         // Background process but maximum is reached
         if (job->bg && bg_job_list->length >= max_bgprocs) {
