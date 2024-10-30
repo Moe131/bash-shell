@@ -121,9 +121,7 @@ void* RemoveFromHead(list_t* list) {
     }
 
     next_node = (*head)->next;
-    if (list->deleter) {
-        list->deleter((*head)->data);
-    }
+
     retval = (*head)->data;
     list->length--;
 

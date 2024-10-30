@@ -33,9 +33,6 @@ void remove_process_from_list(list_t* bg_job_list, pid_t pid) {
         bgentry_t* entry = (bgentry_t*)current->data;
         if (entry->pid == pid) {
             RemoveByIndex(bg_job_list, index);
-            free(entry->job->line);
-            free_job(entry->job);
-            free(entry);
             break;
         }
         current = current->next;
@@ -298,7 +295,6 @@ int main(int argc, char* argv[]) {
     	// calling validate_input with NULL will free the memory it has allocated
     	validate_input(NULL);
         DeleteList(bg_job_list);
-        free(bg_job_list);
 
 
 #ifndef GS
