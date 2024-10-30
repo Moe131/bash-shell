@@ -34,7 +34,7 @@ void remove_process_from_list(list_t* bg_job_list, pid_t pid) {
         if (entry->pid == pid) {
             RemoveByIndex(bg_job_list, index);
             free(entry->job->line);
-            free(entry->job);
+            free_job(entry->job);
             free(entry);
             break;
         }
@@ -127,6 +127,8 @@ int main(int argc, char* argv[]) {
 		// example built-in: exit
 		if (strcmp(job->procs->cmd, "exit") == 0) {
 			// Terminating the shell
+            DeleteList(bg_job_list);
+            free(bg_job_list);
 			free(line);
 			free_job(job);
             validate_input(NULL);   // calling validate_input with NULL will free the memory it has allocated
@@ -296,6 +298,7 @@ int main(int argc, char* argv[]) {
     	// calling validate_input with NULL will free the memory it has allocated
     	validate_input(NULL);
         DeleteList(bg_job_list);
+        free(bg_job_list);
 
 
 #ifndef GS
