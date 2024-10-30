@@ -12,14 +12,27 @@ int compare_bgentry(const void* a, const void* b) {
     return (bg2->seconds - bg1->seconds);  // Most recent first
 }
 
-void handle_bg_completion(list_t* bg_job_list, pid_t pid) {
+// Helper function to find a background job by PID 
+bgentry_t* find_bg_job_by_pid(list_t* bg_job_list, pid_t pid) {
+    node_t* current = bg_job_list->head;
+    while (current != NULL) {
+        bgentry_t* entry = (bgentry_t*)current->data;
+        if (entry->pid == pid) {
+            return entry;
+        }
+        current = current->next;
+    }
+    return NULL; 
+}
+
+
+void remove_process_from_list(list_t* bg_job_list, pid_t pid) {
     node_t* current = bg_job_list->head;
     int index = 0;
     while (current != NULL) {
         bgentry_t* entry = (bgentry_t*)current->data;
         if (entry->pid == pid) {
             RemoveByIndex(bg_job_list, index);
-            printf(BG_TERM, pid, entry->job->line);
             free(entry->job->line);
             free(entry->job);
             free(entry);
@@ -40,7 +53,9 @@ void reap_terminated_children(list_t* bg_job_list) {
     pid_t pid;
     // Reap each terminated child one at a time
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-        handle_bg_completion(bg_job_list, pid);
+        bgentry_t* entry = find_bg_job_by_pid(bg_job_list,pid);
+        printf(BG_TERM, pid, entry->job->line);
+        remove_process_from_list(bg_job_list, pid);
         if (WIFEXITED(status)) 
             last_child_status = WEXITSTATUS(status);  // Update status if exited normally
         
@@ -49,18 +64,6 @@ void reap_terminated_children(list_t* bg_job_list) {
     child_terminated = 0;
 }
 
-// Helper function to find a background job by PID 
-bgentry_t* find_bg_job_by_pid(list_t* bg_job_list, pid_t pid) {
-    node_t* current = bg_job_list->head;
-    while (current != NULL) {
-        bgentry_t* entry = (bgentry_t*)current->data;
-        if (entry->pid == pid) {
-            return entry;
-        }
-        current = current->next;
-    }
-    return NULL; 
-}
 
 
 
@@ -204,11 +207,11 @@ int main(int argc, char* argv[]) {
     				if ((pid = waitpid(bg_pid, &status, 0)) < 0) {
                         fprintf(stderr, PID_ERR);
                     }
-                    handle_bg_completion(bg_job_list, bg_pid);
+                    remove_process_from_list(bg_job_list, bg_pid);
                 }
 			}
                 
-            // bring the most  bg processwith given PID
+            // bring the bg process with given PID
 			else {
                 int status;
                 pid_t bg_pid = atoi(job->procs->argv[1]);
@@ -221,7 +224,7 @@ int main(int argc, char* argv[]) {
     				if ((pid = waitpid(bg->pid, &status, 0)) < 0) {
                         fprintf(stderr, PID_ERR);
                     }
-                    handle_bg_completion(bg_job_list, bg->pid);
+                    remove_process_from_list(bg_job_list, bg->pid);
                 }
 			}
 			free(line);
