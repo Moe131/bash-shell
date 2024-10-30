@@ -88,6 +88,7 @@ void reap_terminated_children(list_t* bg_job_list);
 
 void handle_bg_completion(list_t* bg_job_list, pid_t pid) ;
 
+bgentry_t* find_bg_job_by_pid(list_t* bg_job_list, pid_t pid);
 
 int compare_bgentry(const void* a, const void* b) ;
 void handle_bg_completion(list_t* bg_job_list, pid_t pid);

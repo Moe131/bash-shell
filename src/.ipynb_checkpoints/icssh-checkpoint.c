@@ -47,6 +47,19 @@ void reap_terminated_children(list_t* bg_job_list) {
     child_terminated = 0;
 }
 
+// Helper function to find a background job by PID 
+bgentry_t* find_bg_job_by_pid(list_t* bg_job_list, pid_t pid) {
+    node_t* current = bg_job_list->head;
+    while (current != NULL) {
+        bgentry_t* entry = (bgentry_t*)current->data;
+        if (entry->pid == pid) {
+            return entry;
+        }
+        current = current->next;
+    }
+    return NULL; 
+}
+
 
 
 int main(int argc, char* argv[]) {
@@ -168,6 +181,50 @@ int main(int argc, char* argv[]) {
             free(line);
 			free_job(job);
 			continue;
+		}
+
+        
+        //  built-in: fg 
+		if (strcmp(job->procs->cmd, "fg") == 0) {
+            // bring the most recent bg process
+            if (bg_job_list->length == 0){
+                fprintf(stderr, PID_ERR);
+            }
+			else if (job->procs->argc == 1) {
+                int status;
+                bgentry_t* bg = bg_job_list->head->data;
+                if (bg == NULL){
+                    fprintf(stderr, PID_ERR);
+                }
+                else {
+                    pid_t bg_pid = bg->pid ;
+                    printf("%s\n", bg->job->line);
+    				if ((pid = waitpid(bg_pid, &status, 0)) < 0) {
+                        fprintf(stderr, PID_ERR);
+                    }
+                    handle_bg_completion(bg_job_list, bg_pid);
+                }
+			}
+                
+            // bring the most  bg processwith given PID
+			else {
+                int status;
+                pid_t bg_pid = atoi(job->procs->argv[1]);
+                bgentry_t* bg = find_bg_job_by_pid(bg_job_list, bg_pid);
+                if (bg == NULL){
+                    fprintf(stderr, PID_ERR);
+                }
+                else {
+                    printf("%s\n", bg->job->line);
+    				if ((pid = waitpid(bg->pid, &status, 0)) < 0) {
+                        fprintf(stderr, PID_ERR);
+                    }
+                    handle_bg_completion(bg_job_list, bg->pid);
+                }
+			}
+			free(line);
+			free_job(job);
+            continue;
 		}
 
 
