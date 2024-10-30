@@ -1,4 +1,6 @@
 #include "icssh.h"
+#include "linkedlist.h"
+
 #include <readline/readline.h>
 
 int last_child_status = 0;
@@ -229,7 +231,7 @@ int main(int argc, char* argv[]) {
 
 
         // Background process but maximum is reached
-        if (job->bg && bg_job_list->length >= max_bgprocs) {
+        if (job->bg && bg_job_list->length >= max_bgprocs && max_bgprocs != -1) {
             fprintf(stderr, BG_ERR);
             free(line);
             free_job(job);
@@ -270,7 +272,6 @@ int main(int argc, char* argv[]) {
 
                 // Insert into the background job list
                 InsertInOrder(bg_job_list, new_bg);
-                printf("Started background job with PID: %d\n", pid);
                 continue;
             }
             // foreground process
