@@ -1,0 +1,9 @@
+Makefile
+_pid
+a.out
+bin
+hello.txt
+include
+lib
+rsrc
+src

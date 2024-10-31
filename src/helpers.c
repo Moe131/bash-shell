@@ -212,7 +212,64 @@ void handle_fg_process(job_info* job, list_t* bg_job_list, int* last_child_statu
 }
 
 void execute_child_process(job_info* job){
-    //get the first command in the job list to execute
+
+    // Check for redirection conflicts
+    if ((job->in_file && job->out_file && strcmp(job->in_file, job->out_file) == 0) ||
+        (job->in_file && job->procs->err_file && strcmp(job->in_file, job->procs->err_file) == 0) ||
+        (job->out_file && job->procs->err_file && strcmp(job->out_file, job->procs->err_file) == 0)) {
+        fprintf(stderr, RD_ERR);  // Same file shared for multiple types of redirection
+        free_job(job);  
+        validate_input(NULL);
+        exit(EXIT_FAILURE);
+    }
+    
+    int fd;
+        // Handle input redirection
+    if (job->in_file) {
+        fd = open(job->in_file, O_RDONLY, 0);
+        if (fd < 0) {
+            fprintf(stderr, RD_ERR);
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(fd, STDIN_FILENO) < 0) {
+            perror("Error duplicating file descriptor for input");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+    }
+
+    // Handle output redirection
+    if (job->out_file) {
+        fd = open(job->out_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            perror("Error opening output file");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+            perror("Error duplicating file descriptor for output");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+    }
+
+    // Handle error redirection
+    if (job->procs->err_file) {
+        fd = open(job->procs->err_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd < 0) {
+            perror("Error opening error file");
+            exit(EXIT_FAILURE);
+        }
+        if (dup2(fd, STDERR_FILENO) < 0) {
+            perror("Error duplicating file descriptor for error");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+        close(fd);
+    }
+
+    
     int exec_result;
 	proc_info* proc = job->procs;
 	exec_result = execvp(proc->cmd, proc->argv);
