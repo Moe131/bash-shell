@@ -33,6 +33,8 @@ void remove_process_from_list(list_t* bg_job_list, pid_t pid) {
         bgentry_t* entry = (bgentry_t*)current->data;
         if (entry->pid == pid) {
             RemoveByIndex(bg_job_list, index);
+            free_job(entry->job);
+            free(entry);
             break;
         }
         current = current->next;
@@ -53,6 +55,7 @@ void reap_terminated_children(list_t* bg_job_list) {
         bgentry_t* entry = find_bg_job_by_pid(bg_job_list,pid);
         printf(BG_TERM, pid, entry->job->line);
         remove_process_from_list(bg_job_list, pid);
+
         if (WIFEXITED(status)) 
             last_child_status = WEXITSTATUS(status);  // Update status if exited normally
         
@@ -122,15 +125,26 @@ int main(int argc, char* argv[]) {
         	#endif
 
 		// example built-in: exit
-		if (strcmp(job->procs->cmd, "exit") == 0) {
-			// Terminating the shell
+        if (strcmp(job->procs->cmd, "exit") == 0) {
+            // Terminate all background jobs before exiting
+            node_t* current = bg_job_list->head;
+            while (current != NULL) {
+                bgentry_t* bg_entry = (bgentry_t*)current->data;
+                printf(BG_TERM, bg_entry->pid, bg_entry->job->line);  
+                kill(bg_entry->pid, SIGTERM); 
+                free_job(bg_entry->job);
+                free(bg_entry);
+                current = current->next;
+            }
+
+            // Clean up and exit
             DeleteList(bg_job_list);
             free(bg_job_list);
-			free(line);
-			free_job(job);
+            free(line);
+           free_job(job);
             validate_input(NULL);   // calling validate_input with NULL will free the memory it has allocated
             return 0;
-		}
+        }
 
 		//  built-in: cd
 		if (strcmp(job->procs->cmd, "cd") == 0) {
@@ -257,7 +271,7 @@ int main(int argc, char* argv[]) {
 				// (not necessary because child will exit. Resources will be reaped by parent)
 				free_job(job);  
 				free(line);
-    				validate_input(NULL);  // calling validate_input with NULL will free the memory it has allocated
+    			validate_input(NULL);  // calling validate_input with NULL will free the memory it has allocated
 
 				exit(EXIT_FAILURE);
 			}
@@ -274,6 +288,7 @@ int main(int argc, char* argv[]) {
 
                 // Insert into the background job list
                 InsertInOrder(bg_job_list, new_bg);
+                free(line);
                 continue;
             }
             // foreground process
