@@ -13,6 +13,13 @@ void sigchld_handler(int sig) {
     child_terminated = 1;
 }
 
+void sigusr2_handler(int sig) {
+    time_t now = time(NULL);    
+    char* date_str = ctime(&now);   
+    if (date_str != NULL) {
+        write(STDERR_FILENO, date_str, strlen(date_str));
+    }
+}
 
 
 int main(int argc, char* argv[]) {
@@ -50,6 +57,11 @@ int main(int argc, char* argv[]) {
     // Setup the SIGCHLD handler
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) {
         perror("Failed to set SIGCHLD handler");
+        exit(EXIT_FAILURE);
+    }
+     // Setup the SIGUSR2 handler
+    if (signal(SIGUSR2, sigusr2_handler) == SIG_ERR) {
+        perror("Failed to set SIGUSR2 handler");
         exit(EXIT_FAILURE);
     }
 
