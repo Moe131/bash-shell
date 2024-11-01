@@ -93,9 +93,19 @@ int main(int argc, char* argv[]) {
             free_job(job);
             continue;
         } 
+
+        // Check if it's a piped command with exactly 2 processes
+        if (job->nproc > 1) {
+           if (job->nproc == 2) 
+                handle_single_pipe(job, &last_child_status, bg_job_list);
+            else if (job->nproc == 3) 
+                handle_two_pipes(job, &last_child_status, bg_job_list);
+            free(line);
+        }
+            
         
         // built in command
-        if (is_builtin_command(job->procs->cmd)){
+        else if (is_builtin_command(job->procs->cmd)){
             if (strcmp(job->procs->cmd, "exit") == 0) {
                 free(line);
                 return handle_exit_command(job ,bg_job_list);

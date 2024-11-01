@@ -31,3 +31,7 @@ void handle_bg_process(job_info* job, list_t* bg_job_list, pid_t pid);
 void handle_fg_process(job_info* job, list_t* bg_job_list, int* last_child_status, 	pid_t pid);
 
 void execute_child_process(job_info* job);
+
+void handle_single_pipe(job_info* job, int* last_child_status, list_t* bg_job_list);
+
+void handle_two_pipes(job_info* job, int* last_child_status, list_t* bg_job_list);

@@ -283,3 +283,157 @@ void execute_child_process(job_info* job){
 		exit(EXIT_FAILURE);
 	}   
 }
+
+
+// Function to execute jobs with a single pipe (two commands)
+void handle_single_pipe(job_info* job, int* last_child_status, list_t* bg_job_list) {
+    int p[2];
+    pid_t pid1, pid2;
+
+    if (pipe(p) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    proc_info *proc1 = job->procs;
+    proc_info *proc2 = proc1->next_proc;
+
+    // First process in the pipeline
+    if ((pid1 = fork()) == 0) {
+        close(p[0]); // Close unused read end
+        dup2(p[1], STDOUT_FILENO); // Redirect stdout to write end of pipe
+        close(p[1]);
+
+        // Execute first command in the job
+        execvp(proc1->cmd, proc1->argv);
+        perror("execvp failed for first command");
+        exit(EXIT_FAILURE);
+    } else if (pid1 < 0) {
+        perror("fork failed for first command");
+        exit(EXIT_FAILURE);
+    }
+
+    // Second process in the pipeline
+    if ((pid2 = fork()) == 0) {
+        close(p[1]); // Close unused write end
+        dup2(p[0], STDIN_FILENO); // Redirect stdin to read end of pipe
+        close(p[0]);
+
+        // Execute second command in the job
+        execvp(proc2->cmd, proc2->argv);
+        perror("execvp failed for second command");
+        exit(EXIT_FAILURE);
+    } else if (pid2 < 0) {
+        perror("fork failed for second command");
+        exit(EXIT_FAILURE);
+    }
+
+    // Parent process
+    close(p[0]);
+    close(p[1]);
+
+    int status1, status2;
+    if (job->bg) {
+        // If it's a background job, add it to the list and return
+        waitpid(pid1, &status1, 0);
+        handle_bg_process(job, bg_job_list, pid2);
+        return; 
+    }
+
+    // Wait for both child processes to complete
+    waitpid(pid1, &status1, 0);
+    waitpid(pid2, last_child_status, 0); // Capture the last command status
+
+    free_job(job);
+}
+
+
+// Function to execute jobs with two pipes (three commands)
+void handle_two_pipes(job_info* job, int* last_child_status, list_t* bg_job_list) {
+    int p1[2], p2[2];
+    pid_t pid1, pid2, pid3;
+
+    // Create two pipes for the three commands
+    if (pipe(p1) == -1 || pipe(p2) == -1) {
+        perror("pipe");
+        exit(EXIT_FAILURE);
+    }
+
+    proc_info *proc1 = job->procs;
+    proc_info *proc2 = proc1->next_proc;
+    proc_info *proc3 = proc2->next_proc;
+
+    // First process in the pipeline
+    if ((pid1 = fork()) == 0) {
+        close(p1[0]); // Close unused read end of first pipe
+        dup2(p1[1], STDOUT_FILENO); // Redirect stdout to write end of first pipe
+        close(p1[1]);
+
+        // Execute first command in the job
+        execvp(proc1->cmd, proc1->argv);
+        perror("execvp failed for first command");
+        exit(EXIT_FAILURE);
+    } else if (pid1 < 0) {
+        perror("fork failed for first command");
+        exit(EXIT_FAILURE);
+    }
+
+    // Second process in the pipeline
+    if ((pid2 = fork()) == 0) {
+        close(p1[1]); // Close unused write end of first pipe
+        dup2(p1[0], STDIN_FILENO); // Redirect stdin to read end of first pipe
+        close(p1[0]);
+
+        close(p2[0]); // Close unused read end of second pipe
+        dup2(p2[1], STDOUT_FILENO); // Redirect stdout to write end of second pipe
+        close(p2[1]);
+
+        // Execute second command in the job
+        execvp(proc2->cmd, proc2->argv);
+        perror("execvp failed for second command");
+        exit(EXIT_FAILURE);
+    } else if (pid2 < 0) {
+        perror("fork failed for second command");
+        exit(EXIT_FAILURE);
+    }
+
+    // Third process in the pipeline
+    if ((pid3 = fork()) == 0) {
+        close(p1[0]); // Close unused read end of first pipe
+        close(p1[1]); // Close unused write end of first pipe
+        close(p2[1]); // Close unused write end of second pipe
+        dup2(p2[0], STDIN_FILENO); // Redirect stdin to read end of second pipe
+        close(p2[0]);
+
+        // Execute third command in the job
+        execvp(proc3->cmd, proc3->argv);
+        perror("execvp failed for third command");
+        exit(EXIT_FAILURE);
+    } else if (pid3 < 0) {
+        perror("fork failed for third command");
+        exit(EXIT_FAILURE);
+    }
+
+    // Parent process
+    close(p1[0]);
+    close(p1[1]);
+    close(p2[0]);
+    close(p2[1]);
+
+    int status1, status2, status3;
+    if (job->bg) {
+        // If it's a background job, add it to the list and return
+        waitpid(pid1, &status1, 0);
+        waitpid(pid2, &status2, 0);
+        handle_bg_process(job, bg_job_list, pid3);
+        return; 
+    }
+
+    // Wait for all child processes to complete
+    waitpid(pid1, &status1, 0);
+    waitpid(pid2, &status2, 0);
+    waitpid(pid3, last_child_status, 0); // Capture the last command status
+
+    free_job(job);
+}
+
