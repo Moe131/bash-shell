@@ -1,1 +1,2 @@
-# bash-shell
+# Custom Shell in C
+A custom Bash-like shell in C that supports both background and foreground process management, incorporating features like dynamic memory allocation, signal handling, and process control. Implemented functionality for command parsing, process tracking, and signal handling (e.g., handling Ctrl+C and Ctrl+Z) to ensure robust interaction with active processes. Enhanced the shell with efficient memory management and modular code design to support additional commands and features.
