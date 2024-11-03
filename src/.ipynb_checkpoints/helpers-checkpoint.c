@@ -300,8 +300,8 @@ void handle_single_pipe(job_info* job, int* last_child_status, list_t* bg_job_li
 
     // First process in the pipeline
     if ((pid1 = fork()) == 0) {
-        close(p[0]); // Close unused read end
-        dup2(p[1], STDOUT_FILENO); // Redirect stdout to write end of pipe
+        close(p[0]); 
+        dup2(p[1], STDOUT_FILENO); 
         close(p[1]);
 
         // Execute first command in the job
@@ -315,8 +315,8 @@ void handle_single_pipe(job_info* job, int* last_child_status, list_t* bg_job_li
 
     // Second process in the pipeline
     if ((pid2 = fork()) == 0) {
-        close(p[1]); // Close unused write end
-        dup2(p[0], STDIN_FILENO); // Redirect stdin to read end of pipe
+        close(p[1]); 
+        dup2(p[0], STDIN_FILENO); 
         close(p[0]);
 
         // Execute second command in the job
@@ -365,8 +365,8 @@ void handle_two_pipes(job_info* job, int* last_child_status, list_t* bg_job_list
 
     // First process in the pipeline
     if ((pid1 = fork()) == 0) {
-        close(p1[0]); // Close unused read end of first pipe
-        dup2(p1[1], STDOUT_FILENO); // Redirect stdout to write end of first pipe
+        close(p1[0]); 
+        dup2(p1[1], STDOUT_FILENO); 
         close(p1[1]);
 
         // Execute first command in the job
@@ -380,12 +380,12 @@ void handle_two_pipes(job_info* job, int* last_child_status, list_t* bg_job_list
 
     // Second process in the pipeline
     if ((pid2 = fork()) == 0) {
-        close(p1[1]); // Close unused write end of first pipe
-        dup2(p1[0], STDIN_FILENO); // Redirect stdin to read end of first pipe
+        close(p1[1]); 
+        dup2(p1[0], STDIN_FILENO); 
         close(p1[0]);
 
-        close(p2[0]); // Close unused read end of second pipe
-        dup2(p2[1], STDOUT_FILENO); // Redirect stdout to write end of second pipe
+        close(p2[0]); 
+        dup2(p2[1], STDOUT_FILENO); 
         close(p2[1]);
 
         // Execute second command in the job
@@ -399,10 +399,10 @@ void handle_two_pipes(job_info* job, int* last_child_status, list_t* bg_job_list
 
     // Third process in the pipeline
     if ((pid3 = fork()) == 0) {
-        close(p1[0]); // Close unused read end of first pipe
-        close(p1[1]); // Close unused write end of first pipe
-        close(p2[1]); // Close unused write end of second pipe
-        dup2(p2[0], STDIN_FILENO); // Redirect stdin to read end of second pipe
+        close(p1[0]); 
+        close(p1[1]);
+        close(p2[1]); 
+        dup2(p2[0], STDIN_FILENO); 
         close(p2[0]);
 
         // Execute third command in the job
